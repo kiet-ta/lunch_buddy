@@ -1,5 +1,4 @@
 # Import Router
-# Import Router
 from api.v1.api import api_router
 from core.config import settings
 from fastapi import FastAPI

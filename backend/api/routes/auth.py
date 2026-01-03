@@ -49,11 +49,19 @@ def register_user(session: SessionDep, user_in: UserCreate) -> Any:
     Create a new user without requiring authentication.
     """
     # Check for duplicate email
-    user = session.exec(select(User).where(User.email == user_in.email)).first()
-    if user:
+    user_by_email = session.exec(select(User).where(User.email == user_in.email)).first()
+    if user_by_email:
         raise HTTPException(
             status_code=400,
             detail="The user with this email already exists in the system",
+        )
+    
+    # Check for duplicate username
+    user_by_username = session.exec(select(User).where(User.username == user_in.username)).first()
+    if user_by_username:
+        raise HTTPException(
+            status_code=400,
+            detail="The user with this username already exists in the system",
         )
 
     # Create a new user
@@ -68,8 +76,8 @@ def register_user(session: SessionDep, user_in: UserCreate) -> Any:
     except Exception:
         session.rollback()
         raise HTTPException(
-            status_code=400,
-            detail="The user with this email already exists in the system",
+            status_code=500,
+            detail="An error occurred while creating the user",
         )
     return user
 
