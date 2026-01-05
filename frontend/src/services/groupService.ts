@@ -1,4 +1,4 @@
-import { client } from "../api/client";
+import client from "../api/client";
 
 export interface Group {
     id: number;
@@ -28,7 +28,7 @@ export const groupService = {
 
     getInviteLink: async (groupId: number) => {
         const response = await client.post<InviteResponse>(
-            `/groups/{groupId}/invite`,
+            `/groups/${groupId}/invite`,
         );
         return response.data;
     },

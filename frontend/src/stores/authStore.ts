@@ -1,7 +1,6 @@
-import { create } from 'zustand';
-import * as SecureStore from 'expo-secure-store';
-import client from '../api/client';
-
+import { create } from "zustand";
+import * as SecureStore from "expo-secure-store";
+import client from "../api/client";
 
 interface User {
     id: number;
@@ -18,43 +17,41 @@ interface AuthState {
     checkAuth: () => Promise<void>;
 }
 
-export const useAuthStore = create<AuthState> ((set) => (
-    {
-        user: null,
-        isLoading: true, // default load to check token
+export const useAuthStore = create<AuthState>((set) => ({
+    user: null,
+    isLoading: true, // default load to check token
 
-        login: async (token: string) => {
-            try {
-                await SecureStore.setItemAsync('access_token', token);
-                // after save token, call API /me to get info 
-                const res = await client.get('/auth/me');
-                set ({user: res.data, isLoading: false})
-            } catch (error) {
-                console.log('Login failed', error)
-                await SecureStore.deleteItemAsync('access_token')
-                set({user: null, isLoading: false})
-                throw error;
-            }
-        },
-
-        logout : async () => {
-            await SecureStore.deleteItemAsync('access_token')
-            set({user: null, isLoading: false})
-        },
-
-        checkAuth: async () => {
-            try {
-                const token = await SecureStore.getItemAsync('access_token');
-                if (token) {
-                    const res = await client.get('/auth/me');
-                    set ({user: res.data})
-                }
-            } catch (error) {
-                console.log('Check auth failed', error)
-                await SecureStore.deleteItemAsync('access_token')
-            } finally {
-                set ({ isLoading: false })
-            }
+    login: async (token: string) => {
+        try {
+            await SecureStore.setItemAsync("access_token", token);
+            // after save token, call API /me to get info
+            const res = await client.get("/auth/me");
+            set({ user: res.data, isLoading: false });
+        } catch (error) {
+            console.log("Login failed", error);
+            await SecureStore.deleteItemAsync("access_token");
+            set({ user: null, isLoading: false });
+            throw error;
         }
-    }
-))
+    },
+
+    logout: async () => {
+        await SecureStore.deleteItemAsync("access_token");
+        set({ user: null, isLoading: false });
+    },
+
+    checkAuth: async () => {
+        try {
+            const token = await SecureStore.getItemAsync("access_token");
+            if (token) {
+                const res = await client.get("/auth/me");
+                set({ user: res.data });
+            }
+        } catch (error) {
+            console.log("Check auth failed", error);
+            await SecureStore.deleteItemAsync("access_token");
+        } finally {
+            set({ isLoading: false });
+        }
+    },
+}));

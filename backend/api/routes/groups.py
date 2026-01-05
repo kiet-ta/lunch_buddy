@@ -1,12 +1,11 @@
 from datetime import datetime, timedelta
 from typing import List
 
-from jose import JWTError, jwt
-
 from api.deps import CurrentUser, SessionDep
 from core.config import settings
 from core.security import create_access_token
 from fastapi import APIRouter, HTTPException
+from jose import JWTError, jwt
 from models.group import Group
 from models.group_member import GroupMember
 from schemas.group import GroupCreate, GroupInviteResponse, GroupRead, JoinGroupRequest
@@ -17,7 +16,7 @@ router = APIRouter()
 
 @router.post("/", response_model=GroupRead)
 def create_group(
-    group_in: GroupCreate,
+    group_id: GroupCreate,
     session: SessionDep,
     current_user: CurrentUser,
 ):
@@ -25,7 +24,7 @@ def create_group(
     Create a new lunch group. .
     The creator will automatically be the first member (role=admin).
     """
-    group = Group.model_validate(group_in)
+    group = Group.model_validate(group_id)
     session.add(group)
     # Flush to get the group ID without committing the transaction yet
     session.flush()
@@ -96,7 +95,7 @@ def join_group(
     return {"msg": "Successfully joined the group"}
 
 
-@router.post("{group_id}/invite", response_model=GroupInviteResponse)
+@router.post("/{group_id}/invite", response_model=GroupInviteResponse)
 def create_invite_link(
     group_id: int,
     session: SessionDep,
