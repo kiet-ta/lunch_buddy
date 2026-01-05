@@ -1,6 +1,7 @@
 import { create } from "zustand";
 import * as SecureStore from "expo-secure-store";
 import client from "../api/client";
+import AsyncStorage from "@react-native-async-storage/async-storage";
 
 interface User {
     id: number;
@@ -37,6 +38,9 @@ export const useAuthStore = create<AuthState>((set) => ({
 
     logout: async () => {
         await SecureStore.deleteItemAsync("access_token");
+        await AsyncStorage.removeItem("pending_invite_token");
+        delete client.defaults.headers.common["Authorization"];
+
         set({ user: null, isLoading: false });
     },
 
