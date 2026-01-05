@@ -1,112 +1,115 @@
-import { useEffect } from "react";
+import { useEffect, useState } from "react";
 import { Slot, useRouter, useSegments } from "expo-router";
 import { useAuthStore } from "../src/stores/authStore";
 import { View, ActivityIndicator } from "react-native";
 import * as Linking from "expo-linking";
+import AsyncStorage from "@react-native-async-storage/async-storage";
 import { groupService } from "../src/services/groupService";
+
+// Key used to store invite token when the user is NOT logged in yet
+// Deferred Action Pattern
+// Deferred the action join for process later when conditions are met.
+// impove UX
+const PENDING_INVITE_KEY = "pending_invite_token";
 
 export default function RootLayout() {
   const { user, isLoading, checkAuth } = useAuthStore();
   const router = useRouter();
   const segments = useSegments();
 
-  //Auth state manager at Domain / State layer
-  //Decision: "Who is this user? Is this user logged in?"
+  // State to temporarily disable Auth Guard while processing a deep link
+  // (prevents redirect conflicts)
+  const [isProcessingLink, setIsProcessingLink] = useState(false);
+
+  // 1. Initialize authentication state on app start
   useEffect(() => {
     checkAuth();
   }, []);
 
-  // Handling Deep Links
-  useEffect(() => {
-    const handleDeepLink = (event: Linking.EventType) => {
-      let data = Linking.parse(event.url);
+  // 2. Handle join-group logic (extracted for reuse)
+  const handleJoinGroup = async (token: string) => {
+    setIsProcessingLink(true);
+    try {
+      // Could be replaced by navigation to a dedicated loading screen
+      await groupService.joinByToken(token);
+      alert("Đã tham gia nhóm thành công! 🎉");
+      router.replace("/(tabs)");
 
-      // Check if the path is for joining a group
-      // URL format: lunchbuddy://group/join?token=xyz
-      if (data.path === "group/join" && data.queryParams?.token) {
-        const token = data.queryParams.token;
-        console.log("Detected Invite Token:", token);
+      // Clean up stored token if it exists
+      await AsyncStorage.removeItem(PENDING_INVITE_KEY);
+    } catch (e) {
+      alert("Link mời không hợp lệ hoặc đã hết hạn.");
+    } finally {
+      setIsProcessingLink(false);
+    }
+  };
 
-        // Navigate to a dedicated Join Screen or call API directly
-        // Recommendation: Navigate to a generic loading screen that calls the API
-        router.push({
-          pathname: "/(auth)/join-process", // You need to create this route
-          params: { token: token },
-        });
-      }
-    };
-
-    // 1. Listen for incoming links while app is running
-    const subscription = Linking.addEventListener("url", handleDeepLink);
-
-    // 2. Check if app was opened by a link (Cold start)
-    Linking.getInitialURL().then((url) => {
-      if (url) {
-        handleDeepLink({ url });
-      }
-    });
-
-    return () => {
-      subscription.remove();
-    };
-  }, []);
-
+  // 3. Unified deep link handler (single source of truth)
   useEffect(() => {
     const handleDeepLink = async (event: { url: string }) => {
-      let data = Linking.parse(event.url);
+      const parsed = Linking.parse(event.url);
 
-      // Check link: lunchbuddy://group/join?token=...
-      if (data.path === "group/join" && data.queryParams?.token) {
-        const token = data.queryParams.token as string;
+      if (parsed.path === "group/join" && parsed.queryParams?.token) {
+        const token = parsed.queryParams.token as string;
+        console.log("🚀 Detected Invite Token:", token);
+
+        if (isLoading) return; // Wait until auth check finishes
 
         if (!user) {
-          // TODO: Tricky case: User is not logged in yet.
-          // Temporary solution: Redirect to login, store the token in a global store.
-          // After login, check the store and join the group.
-          alert("Please login to join the group");
+          // CASE: User is not logged in → store token for later use
+          console.log("User not logged in. Saving token...");
+          await AsyncStorage.setItem(PENDING_INVITE_KEY, token);
+          alert("Vui lòng đăng nhập để tham gia nhóm.");
           router.replace("/sign-in");
-          return;
-        }
-
-        try {
-          // User is already authenticated -> Join immediately
-          await groupService.joinByToken(token);
-          alert("Joined group successfully! 🎉");
-          // Reload or redirect to group list
-          router.replace("/(tabs)");
-        } catch (e) {
-          alert("Failed to join group via link.");
+        } else {
+          // CASE: User already logged in → process immediately
+          await handleJoinGroup(token);
         }
       }
     };
 
-    // Listen for deep link events
-    const sub = Linking.addEventListener("url", handleDeepLink);
+    // Listen for deep link events while app is running
+    const subscription = Linking.addEventListener("url", handleDeepLink);
 
-    // Handle cold start (app was closed when the link was opened)
+    // Handle cold start (app opened via deep link)
     Linking.getInitialURL().then((url) => {
       if (url) handleDeepLink({ url });
     });
 
-    return () => sub.remove();
-  }, [user]); // Re-run when user state changes
+    return () => subscription.remove();
+  }, [user, isLoading]);
 
-  // Routing guard in UI / Navigation layer
-  // Decision: "Should this user be allowed to appear on this screen?"
+  // 4. Deferred action: process stored invite token after login
   useEffect(() => {
-    if (isLoading) return;
+    const checkPendingInvite = async () => {
+      if (user && !isLoading) {
+        const pendingToken = await AsyncStorage.getItem(PENDING_INVITE_KEY);
+        if (pendingToken) {
+          console.log(
+            "Found pending invite token, processing deferred join...",
+          );
+          await handleJoinGroup(pendingToken);
+        }
+      }
+    };
+
+    checkPendingInvite();
+  }, [user, isLoading]);
+
+  // 5. Auth Guard (routing logic)
+  useEffect(() => {
+    if (isLoading || isProcessingLink) return;
 
     const inAuthGroup = segments[0] === "(auth)";
-
-    console.log("Current user:", user ? "Logged In" : "Guest");
-    console.log("Current segment:", segments);
 
     if (!user && !inAuthGroup) {
       router.replace("/sign-in");
     } else if (user && inAuthGroup) {
+      // Redirect to tabs ONLY if there is no pending invite
+      // (avoids conflict with deferred join logic)
       router.replace("/(tabs)");
     }
-  }, [user, isLoading, segments]);
+  }, [user, isLoading, segments, isProcessingLink]);
 
   if (isLoading) {
     return (
