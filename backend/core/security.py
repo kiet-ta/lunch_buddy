@@ -4,6 +4,7 @@ from typing import Any, Union
 from core.config import settings
 from jose import jwt
 from passlib.context import CryptContext
+from sqlmodel import SQLModel
 
 # Setup context for bcrypt – a strong password hashing algorithm
 pwd_context = CryptContext(schemes=["bcrypt"], deprecated="auto")
@@ -38,4 +39,3 @@ def verify_password(plain_password: str, hashed_password: str) -> bool:
 def get_password_hash(password: str) -> str:
     """Hash the password before storing it in the database"""
     return pwd_context.hash(password)
-

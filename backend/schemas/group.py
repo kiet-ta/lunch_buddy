@@ -19,3 +19,13 @@ class GroupUpdate(GroupBase):
 
 class GroupRead(GroupBase):
     id: int
+
+
+class JoinGroupRequest(SQLModel):
+    token: str
+
+
+class GroupInviteResponse(SQLModel):
+    invite_url: str
+    qr_code_data: str
+    expires_at: str
