@@ -5,11 +5,16 @@ import { CameraView, Camera } from "expo-camera";
 import { useRouter } from "expo-router";
 import * as Linking from "expo-linking";
 import client from "../../src/api/client";
+import { useAuthStore } from "../../src/stores/authStore";
+import AsyncStorage from "@react-native-async-storage/async-storage";
+
+const PENDING_INVITE_KEY = "pending_invite_token";
 
 export default function QRScannerScreen() {
   const [hasPermission, setHasPermission] = useState<boolean | null>(null);
   const [scanned, setScanned] = useState(false);
   const router = useRouter();
+  const { user } = useAuthStore();
 
   useEffect(() => {
     const getPermissions = async () => {
@@ -23,31 +28,48 @@ export default function QRScannerScreen() {
   const handleBarCodeScanned = async ({ data }: { data: string }) => {
     setScanned(true);
 
-    // 1. Validate Scheme: Check if it starts with lunchbuddy://
     if (!data.startsWith("lunchbuddy://")) {
       Alert.alert("Invalid QR", "This is not a Lunch Buddy code.");
       return;
     }
 
-    // 2. Parse URL to get token
     try {
-      // Use expo-linking to parse the URL
       const parsed = Linking.parse(data);
-      const token = parsed.queryParams?.token;
+      const token = parsed.queryParams?.token as string;
 
       if (!token) {
         Alert.alert("Error", "Invalid invite link.");
         return;
       }
 
-      // 3. Call Backend API to join
-      await joinGroup(token as string);
+      if (user?.is_guest) {
+        Alert.alert(
+          "Yêu cầu tài khoản",
+          "Bạn đang dùng chế độ Khách. Vui lòng đăng ký tài khoản để tham gia nhóm!",
+          [
+            {
+              text: "Đăng ký ngay",
+              onPress: async () => {
+                await AsyncStorage.setItem(PENDING_INVITE_KEY, token);
+                router.push("/sign-up");
+              },
+            },
+            {
+              text: "Hủy",
+              style: "cancel",
+              onPress: () => setScanned(false),
+            },
+          ],
+        );
+        return;
+      }
+
+      await joinGroup(token);
     } catch (err) {
       console.error(err);
       Alert.alert("Error", "Could not process the link.");
     }
   };
-
   const joinGroup = async (token: string) => {
     try {
       // Call the join-by-token endpoint

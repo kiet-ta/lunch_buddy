@@ -13,7 +13,7 @@ import { groupService } from "../src/services/groupService";
 const PENDING_INVITE_KEY = "pending_invite_token";
 
 export default function RootLayout() {
-  const { user, isLoading, checkAuth } = useAuthStore();
+  const { user, isLoading, checkAuth, loginGuest } = useAuthStore();
   const router = useRouter();
   const segments = useSegments();
 
@@ -23,7 +23,12 @@ export default function RootLayout() {
 
   // 1. Initialize authentication state on app start
   useEffect(() => {
-    checkAuth();
+    const init = async () => {
+      await checkAuth();
+      // If checkAuth finishes and still no user, verify if we should auto-create guest
+      // Logic: Only force sign-in if specifically needed, otherwise => Guest mode
+    };
+    init();
   }, []);
 
   // 2. Handle join-group logic (extracted for reuse)
@@ -55,14 +60,20 @@ export default function RootLayout() {
 
         if (isLoading) return; // Wait until auth check finishes
 
-        if (!user) {
+        const isGuest = user?.is_guest;
+        if (!user || isGuest) {
           // CASE: User is not logged in → store token for later use
           console.log("User not logged in. Saving token...");
           await AsyncStorage.setItem(PENDING_INVITE_KEY, token);
-          alert("Vui lòng đăng nhập để tham gia nhóm.");
-          router.replace("/sign-in");
+          alert(
+            isGuest
+              ? "Bạn cần đăng ký tài khoản chính thức để tham gia nhóm!"
+              : "Vui lòng đăng nhập để tham gia nhóm.",
+          );
+
+          router.push("/sign-up");
         } else {
-          // CASE: User already logged in → process immediately
+          // CASE: User already logged in => process immediately
           await handleJoinGroup(token);
         }
       }
@@ -104,13 +115,10 @@ export default function RootLayout() {
 
     if (!user && !inAuthGroup) {
       router.replace("/sign-in");
-    } else if (user && inAuthGroup) {
-      // Redirect to tabs ONLY if there is no pending invite
-      // (avoids conflict with deferred join logic)
+    } else if (user && !user.is_guest && inAuthGroup) {
       router.replace("/(tabs)");
     }
   }, [user, isLoading, segments, isProcessingLink]);
-
   if (isLoading) {
     return (
       <View style={{ flex: 1, justifyContent: "center", alignItems: "center" }}>

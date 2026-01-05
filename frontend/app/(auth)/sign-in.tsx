@@ -21,7 +21,7 @@ import { useAuthStore } from "../../src/stores/authStore";
 
 export default function SignInScreen() {
   const router = useRouter();
-  const { login } = useAuthStore();
+  const { login, loginGuest } = useAuthStore();
 
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
@@ -107,6 +107,28 @@ export default function SignInScreen() {
               ) : (
                 <Text style={styles.buttonText}>Đăng Nhập</Text>
               )}
+            </TouchableOpacity>
+
+            <TouchableOpacity
+              style={[
+                styles.button,
+                { backgroundColor: "#6c757d", marginTop: 10 },
+                isSubmitting && styles.buttonDisabled,
+              ]}
+              onPress={async () => {
+                setIsSubmitting(true);
+                try {
+                  await loginGuest();
+                  router.replace("/(tabs)");
+                } catch (error) {
+                  Alert.alert("Lỗi", "Không thể đăng nhập khách.");
+                } finally {
+                  setIsSubmitting(false);
+                }
+              }}
+              disabled={isSubmitting}
+            >
+               <Text style={styles.buttonText}>Tiếp tục với tư cách Khách</Text>
             </TouchableOpacity>
 
             <View style={styles.footer}>

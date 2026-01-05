@@ -1,5 +1,6 @@
 import axios from "axios";
 import * as SecurityStore from "expo-secure-store";
+import { router } from "expo-router";
 
 const client = axios.create({
     baseURL: process.env.EXPO_PUBLIC_API_URL || "http://localhost:8000/api/v1",
@@ -21,10 +22,17 @@ client.interceptors.request.use(async (config) => {
 // Interceptor 2: response -> log response errors
 client.interceptors.response.use(
     (response) => response,
-    (error) => {
+    async (error) => {
         if (error.response) {
             console.error("API Error:", error.response.data);
-            // TODO: Handle 401 Unauthorized (Logout user)
+
+            if (error.response.status === 401) {
+                console.log("Token expired or invalid. Logging out...");
+
+                await SecurityStore.deleteItemAsync("access_token");
+
+                router.replace("/sign-in");
+            }
         } else {
             console.error("Network Error:", error.message);
         }

@@ -2,7 +2,7 @@ from sqlmodel import SQLModel
 
 
 class UserBase(SQLModel):
-    email: str
+    email: str | None = None
     username: str
     first_name: str
     last_name: str
@@ -10,6 +10,7 @@ class UserBase(SQLModel):
 
 
 class UserCreate(UserBase):
+    email: str
     password: str
 
 
@@ -24,3 +25,4 @@ class UserUpdate(SQLModel):
 
 class UserPublic(UserBase):
     id: int
+    is_guest: bool = False
