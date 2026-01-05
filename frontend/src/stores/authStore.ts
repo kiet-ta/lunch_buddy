@@ -1,7 +1,7 @@
 import { create } from 'zustand';
 import * as SecureStore from 'expo-secure-store';
 import client from '../api/client';
-import { PromiseTask } from 'react-native/types_generated/index';
+
 
 interface User {
     id: number;
@@ -24,14 +24,16 @@ export const useAuthStore = create<AuthState> ((set) => (
         isLoading: true, // default load to check token
 
         login: async (token: string) => {
-            await SecureStore.setItemAsync('access_token', token);
-            // after save token, call API /me to get info 
             try {
+                await SecureStore.setItemAsync('access_token', token);
+                // after save token, call API /me to get info 
                 const res = await client.get('/auth/me');
                 set ({user: res.data, isLoading: false})
-            } catch (error)
-            {
-                console.log('Login fetch user failed', error)
+            } catch (error) {
+                console.log('Login failed', error)
+                await SecureStore.deleteItemAsync('access_token')
+                set({user: null, isLoading: false})
+                throw error;
             }
         },
 

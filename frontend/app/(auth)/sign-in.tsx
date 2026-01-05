@@ -16,8 +16,8 @@ import { StatusBar } from "expo-status-bar";
 import { SafeAreaView } from "react-native-safe-area-context";
 
 import { authStyles as styles } from "../../src/styles/auth.styles";
-import client from "../api/client";
-import { useAuthStore } from "../stores/authStore";
+import client from "../../src/api/client";
+import { useAuthStore } from "../../src/stores/authStore";
 
 export default function SignInScreen() {
   const router = useRouter();
